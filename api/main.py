@@ -8,11 +8,15 @@ load_dotenv()
 # Import routers
 from api.routers import auth, episodes
 
+# Import settings
+from config import settings
+
 # Create FastAPI app
 app = FastAPI(
     title="Podcast-to-Content Multiplier API",
     description="Transform podcast episodes into multiple content formats",
-    version="0.1.0"
+    version="0.1.0",
+    debug=settings.debug
 )
 
 # Add CORS middleware
@@ -35,3 +39,5 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "api"}
+
+# Additional endpoints can be added here
