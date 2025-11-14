@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
-import uuid
 from datetime import datetime
 
 from api.database import get_db
@@ -17,6 +16,7 @@ from api.services import (
     validate_file_type,
     validate_file_size
 )
+from api.workers.tasks import process_episode_task
 
 router = APIRouter()
 
@@ -95,6 +95,9 @@ def create_episode(
     
     db.add(processing_job)
     db.commit()
+    
+    # Trigger background processing
+    process_episode_task.delay(db_episode.id)
     
     return db_episode
 
