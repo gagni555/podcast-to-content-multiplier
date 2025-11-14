@@ -9,12 +9,13 @@ from api.models import Episode, User, Transcript, ProcessingJob
 from api.schemas import Episode as EpisodeSchema, EpisodeCreate, EpisodeUpdate
 from api.utils.auth import oauth2_scheme, get_current_user
 from api.services import (
-    create_episode_service, 
-    get_episodes_service, 
+    create_episode_service,
+    get_episodes_service,
     get_episode_service,
     generate_unique_filename,
     validate_file_type,
-    validate_file_size
+    validate_file_size,
+    get_file_size_limit_mb
 )
 from api.workers.tasks import process_episode_task
 
@@ -54,7 +55,7 @@ def create_episode(
     audio_file.file.seek(0)  # Reset file pointer to beginning
     
     if not validate_file_size(file_size):
-        max_size_mb = int(file_size / (1024 * 1024))
+        max_size_mb = get_file_size_limit_mb()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File size exceeds {max_size_mb}MB limit."

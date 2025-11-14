@@ -1,9 +1,10 @@
 import asyncio
+import json
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 from datetime import datetime
 
-from api.models import Episode, Transcript
+from api.models import Episode, Transcript, ProcessingJob
 from api.services import (
     transcription_service,
     content_generation_service,
@@ -20,8 +21,16 @@ async def process_episode_content(db: Session, episode_id: int):
     if not episode:
         raise ValueError(f"Episode with ID {episode_id} not found")
     
+    # Find the processing job associated with this episode
+    processing_job = db.query(ProcessingJob).filter(
+        ProcessingJob.episode_id == episode_id
+    ).first()
+    
+    if not processing_job:
+        raise ValueError(f"No processing job found for episode {episode_id}")
+    
     # Update job status to processing
-    update_processing_job_status(db, episode_id, "processing", 10)
+    update_processing_job_status(db, processing_job.id, "processing", 10)
     
     try:
         # Step 1: Transcribe the audio
@@ -32,15 +41,15 @@ async def process_episode_content(db: Session, episode_id: int):
         transcript = Transcript(
             episode_id=episode.id,
             text=transcript_data["text"],
-            segments_json=str(transcript_data["segments"]),  # In real app, use proper JSON
-            speakers_json=str(transcript_data["speakers"]),  # In real app, use proper JSON
+            segments_json=json.dumps(transcript_data["segments"]),
+            speakers_json=json.dumps(transcript_data["speakers"]),
             word_count=transcript_data["word_count"]
         )
         db.add(transcript)
         db.commit()
         
         # Update progress
-        update_processing_job_status(db, episode_id, "processing", 40)
+        update_processing_job_status(db, processing_job.id, "processing", 40)
         
         # Step 2: Generate content based on user preferences
         print(f"Starting content generation for episode {episode_id}")
@@ -52,7 +61,7 @@ async def process_episode_content(db: Session, episode_id: int):
             # In a real implementation, we would save this to the database
             
         # Update progress
-        update_processing_job_status(db, episode_id, "processing", 60)
+        update_processing_job_status(db, processing_job.id, "processing", 60)
         
         # Generate social media content if requested
         if episode.generate_social:
@@ -61,7 +70,7 @@ async def process_episode_content(db: Session, episode_id: int):
             # In a real implementation, we would save this to the database
             
         # Update progress
-        update_processing_job_status(db, episode_id, "processing", 80)
+        update_processing_job_status(db, processing_job.id, "processing", 80)
         
         # Generate newsletter content if requested
         if episode.generate_newsletter:
@@ -76,7 +85,7 @@ async def process_episode_content(db: Session, episode_id: int):
             # In a real implementation, we would save this to the database
             
         # Update progress to complete
-        update_processing_job_status(db, episode_id, "completed", 100)
+        update_processing_job_status(db, processing_job.id, "completed", 100)
         
         # Update episode status
         episode.status = "completed"
@@ -88,7 +97,7 @@ async def process_episode_content(db: Session, episode_id: int):
         
     except Exception as e:
         # Update job status to failed
-        update_processing_job_status(db, episode_id, "failed", 0, str(e))
+        update_processing_job_status(db, processing_job.id, "failed", 0, str(e))
         episode.status = "failed"
         db.commit()
         print(f"Failed processing for episode {episode_id}: {str(e)}")
